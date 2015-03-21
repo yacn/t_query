@@ -3,6 +3,12 @@ use std::io;
 use std::fmt;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
+use std::io::{TcpListener,TcpStream,BufferedStream,File,Listener,Acceptor,IoError,IoErrorKind,FileStat};
+use std::thread::Thread;
+use std::io::net::tcp::TcpAcceptor;
+const BIND_ADDR: &'static str = "127.0.0.1:12345";
+const MAX_REQUEST_LENGTH: usize = 8192;
+
 
 fn mk_reader(s: &str) -> io::BufferedReader<io::MemReader> {
     let b = s.to_string().into_bytes();
@@ -10,6 +16,20 @@ fn mk_reader(s: &str) -> io::BufferedReader<io::MemReader> {
 }
 
 fn main() {
+    let listener: TcpListener = TcpListener::bind(BIND_ADDR).unwrap();
+    let mut acceptor: TcpAcceptor = listener.listen().unwrap();
+    for stream in acceptor.incoming() {
+        match stream {
+            Err(e) => {println!("error: {}", e) }
+            Ok(stream) => {println!("reading")/*
+                let stream_buff: BufferedStream<TcpStream> = BufferedStream::new(stream);
+                Thread::spawn(move || {
+                    handle_request(stream_buff)
+                });*/
+            }
+        }
+    }
+    drop(acceptor);
 
     let mut subway: Subway = Subway::new();
 
@@ -171,6 +191,9 @@ Kenmore Station
     subway.print_station_connections("Alewife Station");
 }
 
+//fn handle_request<S: io::Stream>(stream: S) -> () {
+
+//}
 fn read_graph<R: Reader>(mut subway: &mut Subway, mut content: io::BufferedReader<R>) {
     let mut subway_line: String = String::new();
     let mut subway_branch: String = String::new();
