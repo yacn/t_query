@@ -2,7 +2,10 @@
 use std::io;
 use std::fmt;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
+use std::cmp::Ordering;
+use std::collections::BinaryHeap;
 
 fn mk_reader(s: &str) -> io::BufferedReader<io::MemReader> {
     let b = s.to_string().into_bytes();
@@ -169,6 +172,13 @@ Kenmore Station
     subway.print_station_connections("Wollaston Station");
     subway.print_station_connections("Lechmere Station");
     subway.print_station_connections("Alewife Station");
+    let start_id = subway.get_station_id("Boylston Street Station").unwrap();
+    let end_id = subway.get_station_id("Northeastern University Station").unwrap();
+    let maybe_path = find_path(&subway, start_id, end_id);
+    match maybe_path {
+        Some(p) => println!("path: {}", p),
+        None    => println!("no path"),
+    }
 }
 
 fn read_graph<R: Reader>(mut subway: &mut Subway, mut content: io::BufferedReader<R>) {
@@ -209,7 +219,13 @@ type StationId = usize;
 struct Subway {
     stations: HashMap<StationId, Station>,
     station_id_map: HashMap<Station, StationId>,
-    connections: HashMap<StationId, Vec<StationId>>,
+    connections: HashMap<StationId, HashSet<Connection>>,
+}
+
+#[derive(Copy, Eq, PartialEq)]
+struct Connection {
+    stn_id: StationId,
+    weight: usize,
 }
 
 impl Subway {
@@ -248,16 +264,44 @@ impl Subway {
             None => None,
         }
     }
+
+    fn get_station_from_id(&self, stn_id: StationId) -> Option<Station> {
+        self.stations.get(&stn_id)
+    }
     
-    fn add_connection(&mut self, from: StationId, to: StationId) -> () {
+    fn add_connection_single(&mut self, from: StationId, to: StationId) -> () {
+        let from_stn = self.get_station_from_id(from).unwrap();
+        let to_stn = self.get_station_from_id(to).unwrap();
+        let from_line = from_stn.line;
+        let to_line = to_stn.line;
+        let no_line_transfer = from_line.iter().all(|s| to_line.contains(s));
+        let connection_cost = if no_line_transfer { 1 } else { 2 };
+        let connection = Connection { stn_id: to, cost: connection_cost };
         match self.connections.entry(from) {
-            Occupied(mut en) => { en.get_mut().push(to); },
-            Vacant(mut en) => { en.insert(vec![to]); },
+            Occupied(mut en) => {
+                en.get_mut().insert(connection);
+            },
+            Vacant(mut en) => {
+                let mut hs: HashSet<Connection> = HashSet::new();
+                hs.insert(connection);
+                en.insert(hs);
+            },
         }
-        match self.connections.entry(to) {
-            Occupied(mut en) => { en.get_mut().push(from); },
-            Vacant(mut en) => { en.insert(vec![from]); },
+    }
+    fn add_connection(&mut self, from: StationId, to: StationId) -> () {
+        self.add_connection_single(from, to);
+        self.add_connection_single(to, from);
+    }
+
+    fn get_station_name(&self, stn_id: StationId) -> Option<String> {
+        match self.stations.get(&stn_id) {
+            Some(stn) => Some(stn.name.to_string()),
+            None      => None
         }
+    }
+
+    fn get_connections_for_id(&self, from: StationId) -> Option<&HashSet<Connection>> {
+        self.connections.get(&from)
     }
     
     fn print_stations(&self) {
@@ -281,7 +325,7 @@ impl Subway {
                 print!(" {} }}\n", br);
                 print!("\t[");
                 for c in cs.iter() {
-                    match self.stations.get(c) {
+                    match self.stations.get(c.stn_id) {
                         Some(stn) => {
                             let special_names = ["South Station", "North Station"];
                             let prnt_name =
@@ -290,9 +334,9 @@ impl Subway {
                                 } else {
                                     stn.name.replace(" Station", "")
                                 };
-                            print!("{} ({}), ", prnt_name, c);
+                            print!("{} ({}), ", prnt_name, c.stn_id);
                         },
-                        None => print!("({})", c)
+                        None => print!("({})", c.stn_id)
                     }
 
                 }
@@ -301,6 +345,46 @@ impl Subway {
             None => { },
         }
     }
+}
+
+fn find_path(graph: &Subway, start: StationId, end: StationId) -> Option<String> {
+   // dist[node] = current shortest distance from `start` to `node`
+    let mut dist: Vec<_> = range(0, adj_list.len()).map(|_| uint::MAX).collect(); 
+    let mut current: StationId = start;
+    let mut todo: Vec<StationId> = vec![];
+    let mut visited: Vec<StationId> = vec![];
+    loop {
+        if current == end {
+            visited.push(current);
+            break;
+        }
+        let neighbors = match graph.get_connections_for_id(current) {
+            Some(n) => n,
+            None => {
+                return None;
+            }
+        };
+        for neighbor in neighbors.iter() {
+            if visited.contains(neighbor) {
+                continue;
+            }
+            todo.push(*neighbor);
+        }
+        if !visited.as_slice().contains(&current) {
+            visited.push(current); 
+        }
+        if todo.len() == 0 { return None; }
+        current = todo.remove(0);
+    }
+    let mut path_string: String = String::new();
+    for v in visited.iter() {
+        match graph.get_station_name(*v) {
+            Some(n) => { path_string = format!("{}->{}", path_string, n) },
+            None    => { path_string = format!("{}->{}", path_string, v) },
+        }
+    }
+    //let path_string: String = visited.as_slice().connect("->");
+    Some(path_string)
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Show)]
