@@ -1,18 +1,30 @@
 #![allow(unstable)]
-use std::io;
-use std::fmt;
-use std::uint;
+#![allow(unused_mut)]
 
-use std::collections::BinaryHeap;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::collections::hash_map::Entry::{Occupied, Vacant};
-use std::io::{TcpListener,TcpStream,BufferedStream,File,Listener,Acceptor,IoError,IoErrorKind,FileStat};
+#![allow(unused_imports)]
+extern crate t_query;
+
+use t_query::subway::{Subway, SubwayGraph};
+use t_query::load_subway_data;
+use t_query::find_route;
+
+use std::io;
+
+use std::io::{
+    TcpListener,
+    TcpStream,
+    BufferedStream,
+    File,
+    Listener,
+    Acceptor,
+    IoError,
+    IoErrorKind,
+    FileStat
+};
 use std::thread::Thread;
 use std::io::net::tcp::TcpAcceptor;
-use std::cmp::Ordering;
+
 const BIND_ADDR: &'static str = "127.0.0.1:12345";
-const MAX_REQUEST_LENGTH: usize = 8192;
 
 fn mk_reader(s: &str) -> io::BufferedReader<io::MemReader> {
     let b = s.to_string().into_bytes();
@@ -20,20 +32,21 @@ fn mk_reader(s: &str) -> io::BufferedReader<io::MemReader> {
 }
 
 fn main() {
+    /*
     let listener: TcpListener = TcpListener::bind(BIND_ADDR).unwrap();
     let mut acceptor: TcpAcceptor = listener.listen().unwrap();
     for stream in acceptor.incoming() {
         match stream {
             Err(e) => {println!("error: {}", e) }
-            Ok(stream) => {println!("reading")/*
-                let stream_buff: BufferedStream<TcpStream> = BufferedStream::new(stream);
-                Thread::spawn(move || {
+            Ok(stream) => {println!("reading")
+                //let stream_buff: BufferedStream<TcpStream> = BufferedStream::new(stream);
+                //Thread::spawn(move || {
                     handle_request(stream_buff)
-                });*/
+                //});
             }
         }
     }
-    drop(acceptor);
+    drop(acceptor);*/
 
     let mut subway: Subway = Subway::new();
 
@@ -51,7 +64,7 @@ State Station
 Government Center Station
 Bowdoin Station";
     let mut blue_reader = mk_reader(blue);
-    read_graph(&mut subway, blue_reader);
+    load_subway_data(&mut subway, blue_reader, "blue");
     let red: &str = "--- Braintree Mattapan
 Alewife Station
 Davis Station
@@ -85,7 +98,7 @@ JFK/UMass Station
        Capen Street Station
        Mattapan Station";
        let mut red_reader = mk_reader(red);
-       read_graph(&mut subway, red_reader);
+       load_subway_data(&mut subway, red_reader, "red");
        let orange: &str = "--- orange
 Oak Grove Station
 Malden Center Station
@@ -108,7 +121,7 @@ Stony Brook Station
 Green Street Station
 Forest Hills Station";
        let mut orange_reader = mk_reader(orange);
-       read_graph(&mut subway, orange_reader);
+       load_subway_data(&mut subway, orange_reader, "orange");
        let green: &str = "--- B C D E 
 Lechmere Station
 Science Park Station
@@ -182,17 +195,14 @@ Kenmore Station
                  South Street Station
                  Boston College Station";
     let green_reader = mk_reader(green);
-    read_graph(&mut subway, green_reader);
+    load_subway_data(&mut subway, green_reader, "green");
 
-    //let start: &str = "Alewife Station";
-    //let end: &str = "Jackson Square Station";
+    let start: &str = "Airport Station";
 
-    /* this gives nonsense path b/c confuses St. Paul St stop on B and C line as same */
-    let start: &str = "Harvard Avenue Station";
-    let end: &str = "Northeastern University Station";
-    let start_id = subway.get_station_id(start).unwrap();
-    let end_id = subway.get_station_id(end).unwrap();
-    let maybe_path = find_path_str(&subway, start_id, end_id);
+    let end: &str = "Coolidge Corner Station";
+    let start_id = *(subway.get_station_id(start).unwrap());
+    let end_id = *(subway.get_station_id(end).unwrap());
+    let maybe_path = find_route(&subway, start_id, end_id);
     match maybe_path {
         Some(p) => println!("path from {} to {}:\n{}", start, end, p),
         None    => println!("no path"),
@@ -202,281 +212,3 @@ Kenmore Station
 //fn handle_request<S: io::Stream>(stream: S) -> () {
 
 //}
-fn read_graph<R: Reader>(mut subway: &mut Subway, mut content: io::BufferedReader<R>) {
-    let mut subway_line: String = String::new();
-    let mut subway_branch: String = String::new();
-    let mut prev_stn_id: Option<usize> = None;
-    let mut pre_branch_stn: Option<usize> = None;
-    for l in content.lines() {
-        let line = l.unwrap();
-        let to_trim: &[_] = &['-', ' '];
-        
-        let id_line: bool = line.starts_with("--- ");
-        if id_line {
-            subway_line = line.trim_left_matches(to_trim).trim().to_string();
-            pre_branch_stn = prev_stn_id;
-            continue;
-        }
-        
-        let is_branch_line: bool = line.starts_with("----");
-        
-        if is_branch_line {
-            subway_branch = line.trim_left_matches(to_trim).trim().to_string();
-            continue;
-        } else {
-            let station: &str  = line.trim();
-            let stn_id: StationId = subway.add_station(station).unwrap();
-            if let Some(sid) = prev_stn_id {
-                subway.add_connection(sid, stn_id, subway_line.as_slice(), subway_branch.as_slice());
-                subway.add_connection(stn_id, sid, subway_line.as_slice(), subway_branch.as_slice());
-            }
-            prev_stn_id = Some(stn_id);
-        }
-    }
-}
-/*
-#[derive(PartialEq, Eq, Hash, Clone, Show)]
-struct Station {
-    name: String,
-    line: Vec<String>,
-    branch: Option<String>,
-}
-
-impl fmt::String for Station {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let l = self.line.connect(":");
-        let b = match self.branch {
-          Some(ref br) => br.to_string(),
-          None     => String::new(),
-        };
-        write!(f, "{} ({}, {})", self.name, l, b)
-    }
-}
-
-impl Station {
-    fn new(name_: &str, line_: &str, branch_: &str) -> Station {
-        Station {
-            name: name_.to_string(),
-            line: vec![line_.to_string()],
-            branch: if branch_.len() == 0 { None } else { Some(branch_.to_string()) },
-        }
-    }
-}*/
-
-type StationId = usize;
-type Station = String;
-struct Subway {
-    stations: HashMap<StationId, Station>,
-    station_id_map: HashMap<Station, StationId>,
-    connections: HashMap<StationId, HashSet<Connection>>,
-}
-
-#[derive(Eq, PartialEq, Hash, Clone, Show)]
-struct Connection {
-    to: StationId,
-    cost: usize,
-    line: String,
-    branch: Option<String>
-}
-
-impl Subway {
-    fn new() -> Subway {
-        Subway {
-            stations: HashMap::new(),
-            station_id_map: HashMap::new(),
-            connections: HashMap::new(),
-        }
-    }
-    
-    fn add_station(&mut self, station: &str) -> Option<StationId> {
-        match self.station_id_map.entry(station.to_string()) {
-            Occupied(ent) => {
-                let stn_id: &StationId = ent.get();
-                return Some(*stn_id);
-            },
-            Vacant(ent) => {
-                let stn_id: StationId = self.stations.len();
-                self.stations.insert(stn_id, station.to_string());
-                ent.insert(stn_id);
-                return Some(stn_id);
-            },
-        }
-        None
-    }
-
-    fn get_station_id(&self, station: &str) -> Option<StationId>{
-        let mut pairs = self.stations.iter().filter(|&(id, s)| s.as_slice() == station);
-        match pairs.next() {
-            Some((sid, _)) => Some(*sid),
-            None => None,
-        }
-    }
-
-    fn get_station_from_id(&self, stn_id: StationId) -> Option<&Station> {
-        self.stations.get(&stn_id)
-    }
-
-    fn add_connection(&mut self, from: StationId, to: StationId, line: &str, branch_: &str) {
-        let c = Connection {
-            to: to,
-            cost: 1,
-            line: line.to_string(),
-            branch: if branch_.len() == 0 { None } else { Some(branch_.to_string()) },
-        };
-        match self.connections.entry(from) {
-            Occupied(mut ent) => { ent.get_mut().insert(c); },
-            Vacant(ent) => {
-                let mut hs: HashSet<Connection> = HashSet::new();
-                hs.insert(c);
-                ent.insert(hs);
-            }
-        }
-    }
-    
-    fn len(&self) -> usize {
-        self.stations.len()
-    }
-
-    fn get_station_name(&self, stn_id: StationId) -> Option<String> {
-        match self.stations.get(&stn_id) {
-            Some(stn) => Some(stn.to_string()),
-            None      => None
-        }
-    }
-
-    fn get_connections_for_id(&self, from: StationId) -> Option<&HashSet<Connection>> {
-        self.connections.get(&from)
-    }
-
-    fn get_connection(&self, from: StationId, to: StationId) -> Option<&Connection> {
-        if let Some(connections) = self.connections.get(&from) {
-            return connections.iter().find(|c| c.to == to);
-        }
-        None
-    }
-    
-    fn print_stations(&self) {
-        for (sid, stn) in self.stations.iter() {
-            println!("{} {}", sid, stn);
-        }
-    }
-    /*fn print_station_connections(&self, station: &str) {
-        let sid = self.get_station_id(station).unwrap();
-        let root = self.stations.get(&sid).unwrap();
-        match self.connections.get(&sid) {
-            Some(cs) => {
-                print!("{}: {{", station);
-                for line in root.line.iter() {
-                    print!("{}, ", line);
-                }
-                let br = match root.branch {
-                    Some(ref b) => b.to_string(),
-                    None    => String::new(),
-                };
-                print!(" {} }}\n", br);
-                print!("\t[");
-                for c in cs.iter() {
-                    match self.stations.get(&c.stn_id) {
-                        Some(stn) => {
-                            let special_names = ["South Station", "North Station"];
-                            let prnt_name =
-                                if special_names.iter().any(|&s| stn.name.as_slice() == s) {
-                                    stn.name.to_string()
-                                } else {
-                                    stn.name.replace(" Station", "")
-                                };
-                            print!("{} ({}), ", prnt_name, c.cost);
-                        },
-                        None => print!("({} [{}])", c.stn_id, c.cost)
-                    }
-
-                }
-                print!("]\n");
-            },
-            None => { },
-        }
-    }*/
-}
-
-
-#[derive(Copy, Eq, PartialEq)]
-struct State {
-    cost: uint,
-    position: uint,
-}
-
-impl Ord for State {
-    fn cmp(&self, other: &State) -> Ordering {
-        other.cost.cmp(&self.cost)
-    }
-}
-
-impl PartialOrd for State {
-    fn partial_cmp(&self, other: &State) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-fn find_path(graph: &Subway, start: StationId, end: StationId) -> Option<Vec<StationId>> {
-   // dist[node] = current shortest distance from `start` to `node`
-    let mut dist: Vec<_> = range(0, graph.len()).map(|_| uint::MAX).collect();
-
-    let mut heap = BinaryHeap::new();
-
-    let mut came_from: HashMap<StationId, StationId> = HashMap::new();
-
-    // We're at `start`, with a zero cost
-    dist[start] = 0;
-    heap.push(State { cost: 0, position: start });
-
-    // Examine the frontier with lower cost nodes first (min-heap)
-    while let Some(State { cost, position }) = heap.pop() {
-        if position == end { return Some(reconstruct_path(came_from, end)); }
-
-        // Important as we may have already found a better way
-        if cost > dist[position] { continue; }
-
-        // For each node we can reach, see if we can find a way with
-        // a lower cost going through this node
-        let mut connections = graph.get_connections_for_id(position).unwrap();
-        for connection in connections.iter() {
-            let next = State { cost: cost + connection.cost, position: connection.to };
-
-            // If so, add it to the frontier and continue
-            if next.cost < dist[next.position] {
-                heap.push(next);
-                // Relaxation, we have now found a better way
-                dist[next.position] = next.cost;
-                match came_from.entry(connection.to) {
-                    Occupied(mut en) => { en.insert(position); },
-                    Vacant(mut en)   => { en.insert(position); },
-                }
-            }
-        }
-    }
-    None
-}
-
-fn reconstruct_path(came_from: HashMap<StationId, StationId>, goal: StationId) -> Vec<StationId> {
-    let mut total_path: Vec<StationId> = vec![goal];
-    let mut current: Option<&StationId> = came_from.get(&goal);
-    while let Some(&id) = current {
-        total_path.push(id);
-        current = came_from.get(&id);
-    }
-    total_path.reverse();
-    return total_path;
-}
-
-fn find_path_str(graph: &Subway, start: StationId, end: StationId) -> Option<String> {
-    if let Some(path_ids) = find_path(graph, start, end) {
-        let mut path_string: String = String::new();
-        for id in path_ids.iter() {
-            if let Some(n) = graph.get_station_name(*id) {
-                path_string = format!("{}{}\n", path_string, n);
-            }
-        }
-        return Some(path_string);
-    }
-    None
-}
