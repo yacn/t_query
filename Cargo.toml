@@ -1,5 +1,5 @@
 [package]
 
-name = "foo"
+name = "t_query"
 version = "0.0.1"
-authors = ["yacn <admin@yacn.me>"]
+authors = ["Isaac Boehman <idboehman@gmail.com>", "Anh Tran <panhtran249@gmail.com>"]
