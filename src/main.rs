@@ -77,18 +77,35 @@ fn main() {
         }
     }
 
-    let route_re = regex!(r"^from (?P<from>[A-Za-z. ]) to (?P<to>[A-Za-z. ])$");
+    let route_re = regex!(r"^from (?P<from>[A-Za-z. ]+) to (?P<to>[A-Za-z. ]+)$");
 
-    let start: &str = "Airport Station";
-
-    let end: &str = "Coolidge Corner Station";
-    let start_id = *(subway.get_station_id(start).unwrap());
-    let end_id = *(subway.get_station_id(end).unwrap());
-    let maybe_path = find_route(&subway, start_id, end_id);
-    match maybe_path {
-        Some(p) => println!("path from {} to {}:\n{}", start, end, p),
-        None    => println!("no path"),
+    io::stdio::print(PROMPT);
+    for line in io::stdin().lock().lines() {
+        let input_line: String = line.unwrap();
+        let maybe_caps = route_re.captures(input_line.trim());
+        if maybe_caps.is_none() {
+            println!("No path: {}", input_line);
+            io::stdio::print(PROMPT);
+            continue;
+        }
+        let caps = maybe_caps.unwrap();
+        let from = caps.name("from").unwrap();
+        let from = caps.name("from").unwrap();
+        let to = caps.name("to").unwrap();
+        let start_id = *(subway.get_station_id(from).unwrap());
+        let end_id = *(subway.get_station_id(to).unwrap());
+        let maybe_path = find_route(&subway, start_id, end_id);
+        match maybe_path {
+            Some(p) => println!("path from {} to {}:\n{}", from, to, p),
+            None    => {
+                println!("No path from {} to {}", from, to);
+                io::stdio::print(PROMPT);
+                continue;
+            }
+        }
+        io::stdio::print(PROMPT);
     }
+
 }
 
 //fn handle_request<S: io::Stream>(stream: S) -> () {
