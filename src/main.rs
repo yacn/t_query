@@ -9,6 +9,7 @@ use t_query::load_subway_data;
 use t_query::find_route;
 
 use std::io;
+use std::os;
 
 use std::io::{
     TcpListener,
@@ -47,155 +48,27 @@ fn main() {
         }
     }
     drop(acceptor);*/
+    let args: Vec<String> = os::args();
+    let args: &[String] = args.tail();
+
+    if args.len() == 0 {
+        println!("ERROR: Must provide at least one subway data file!");
+        return;
+    }
 
     let mut subway: Subway = Subway::new();
 
-    let blue: &str = "--- blue 
-Wonderland Station
-Revere Beach Station
-Beachmont Station
-Suffolk Downs Station
-Orient Heights Station
-Wood Island Station
-Airport Station
-Maverick Station
-Aquarium Station
-State Station
-Government Center Station
-Bowdoin Station";
-    let mut blue_reader = mk_reader(blue);
-    load_subway_data(&mut subway, blue_reader, "blue");
-    let red: &str = "--- Braintree Mattapan
-Alewife Station
-Davis Station
-Porter Square Station
-Harvard Square Station
-Central Square Station
-Kendall Station
-Charles/MGH Station
-Park Street Station
-Downtown Crossing Station
-South Station
-Broadway Station
-Andrew Station
-JFK/UMass Station
----------- Braintree 
-       North Quincy Station
-       Wollaston Station
-       Quincy Center Station
-       Quincy Adams Station
-       Braintree Station
----------- Mattapan
-       Savin Hill Station
-       Fields Corner Station
-       Shawmut Station
-       Ashmont Station
-       Cedar Grove Station
-       Butler Station
-       Milton Station
-       Central Avenue Station
-       Valley Road Station
-       Capen Street Station
-       Mattapan Station";
-       let mut red_reader = mk_reader(red);
-       load_subway_data(&mut subway, red_reader, "red");
-       let orange: &str = "--- orange
-Oak Grove Station
-Malden Center Station
-Wellington Station
-Assembly Station
-Sullivan Square Station
-Community College Station
-North Station
-Haymarket Station
-State Station
-Downtown Crossing Station 
-Chinatown Station
-Tufts Medical Center Station
-Back Bay Station
-Massachusetts Avenue Station
-Ruggles Station
-Roxbury Crossing Station
-Jackson Square Station
-Stony Brook Station
-Green Street Station
-Forest Hills Station";
-       let mut orange_reader = mk_reader(orange);
-       load_subway_data(&mut subway, orange_reader, "orange");
-       let green: &str = "--- B C D E 
-Lechmere Station
-Science Park Station
-North Station
-Haymarket Station
-Government Center Station
-Park Street Station
-Boylston Street Station
-Arlington Station
-Copley Station
------------------------- E
-             Prudential Station
-             Symphony Station
-             Northeastern University Station
-             Museum of Fine Arts Station
-             Longwood Medical Area Station
-             Brigham Circle Station
-             Fenwood Road Station
-             Mission Park Station
-             Riverway Station
-             Back of the Hill Station
-             Heath Street Station
---- B C D
-Hynes Convention Center
-Kenmore Station
----------- C
-       St. Marys Street Station
-       Hawes Street Station
-       Kent Street Station
-       St. Paul Street
-       Coolidge Corner Station
-       Summit Avenue Station
-       Brandon Hall Station
-       Fairbanks Station
-       Washington Square Station
-       Tappan Street Station
-       Fenway Station
-       Dean Road Station
-       Englewood Avenue Station
-       Cleveland Circle Station
---------------------- D 
-              Longwood Station
-              Brookline Village Station
-              Brookline Hills Station
-              Beaconsfield Station
-              Reservoir Station
-              Chestnut Hill Station D Riverside Line
-              Newton Centre Station
-              Newton Highlands Station
-              Eliot Station
-              Waban Station
-              Woodland Station
-              Riverside Station
--------------------------------- B 
-                 Blandford Street Station
-                 Boston University East Station
-                 Boston University Central Station
-                 Boston University West Station
-                 St. Paul Street
-                 Pleasant Street Station
-                 Babcock Street Station
-                 Packards Corner Station
-                 Harvard Avenue Station
-                 Griggs Street/Long Avenue Station
-                 Allston Street Station
-                 Warren Street Station
-                 Washington Street Station
-                 Sutherland Road Station 
-                 Chiswick Road Station
-                 Chestnut Hill Avenue Station
-                 South Street Station
-                 Boston College Station";
-    let green_reader = mk_reader(green);
-    load_subway_data(&mut subway, green_reader, "green");
+    for arg in args.iter() {
+        let path: Path = Path::new(arg);
+        if let Some(subway_line) = path.filestem_str() {
+            let file = io::File::open(&path);
+            let file_buf = io::BufferedReader::new(file);
+            load_subway_data(&mut subway, file_buf, subway_line);
+        } else {
+            println!("Error getting filename from: {:?}", path);
+            continue;
+        }
+    }
 
     let start: &str = "Airport Station";
 
