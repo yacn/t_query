@@ -1,7 +1,12 @@
 #![allow(unstable)]
 #![allow(unused_mut)]
-
 #![allow(unused_imports)]
+#![feature(plugin)]
+
+#[plugin]
+extern crate regex_macros;
+extern crate regex;
+
 extern crate t_query;
 
 use t_query::subway::{Subway, SubwayGraph};
@@ -24,6 +29,8 @@ use std::io::{
 };
 use std::thread::Thread;
 use std::io::net::tcp::TcpAcceptor;
+
+const PROMPT: &'static str = "===>>>";
 
 const BIND_ADDR: &'static str = "127.0.0.1:12345";
 
@@ -69,6 +76,8 @@ fn main() {
             continue;
         }
     }
+
+    let route_re = regex!(r"^from (?P<from>[A-Za-z. ]) to (?P<to>[A-Za-z. ])$");
 
     let start: &str = "Airport Station";
 

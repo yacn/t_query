@@ -3,3 +3,7 @@
 name = "t_query"
 version = "0.0.1"
 authors = ["Isaac Boehman <idboehman@gmail.com>", "Anh Tran <panhtran249@gmail.com>"]
+
+[dependencies]
+regex = "= 0.1.10"
+regex_macros = "= 0.1.5"
