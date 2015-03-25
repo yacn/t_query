@@ -7,42 +7,61 @@ use std::cmp::Ordering;
 use super::{Subway, StationId, StationInfo, SubwayGraph};
 
 /// Attempts to find a route from `start` to `end`
-pub fn find_route(graph: &Subway, start: StationId, end: StationId) -> Option<String> {
-    if let Some(path_ids) = find_path(graph, start, end) {
-        let mut path_string: String = String::new();
-        let mut prev_line: String = String::new();
-        let mut prev_branch: String = String::new();
-        for &(ref id, ref info) in path_ids.iter() {
-            if let Some(n) = graph.get_station(*id) {
-            	// TODO: below seems brittle AF, must be DRYer way
-                if prev_line.is_empty() && prev_branch.is_empty() {
-                    prev_line = info.line.to_string();
-                    prev_branch = info.branch.to_string();
-                }
-                if prev_branch.as_slice() != info.branch.as_slice() {
-                    if info.branch.as_slice() != info.line.as_slice() {
-                        path_string = format!("{}---ensure you are on {}\n", path_string,
-                        													 info.branch)
-                    }
-                }
-                if prev_line.as_slice() != info.line.as_slice() {
-                    path_string = format!("{}---switch from {} to {}\n", path_string,
-                    													 prev_line,
-                    													 info.line)
-                }
+pub fn find_route(graph: &Subway, start: &str, end: &str) -> Result<String, String> {
 
-                if info.branch.as_slice() == info.line.as_slice() {
-                    path_string = format!("{}{}, take {}\n", path_string, n, info.line);
-                } else {
-                    path_string = format!("{}{}, take {}\n", path_string, n, info.branch);
-                }
+    let maybe_start_id = graph.find_station(start);
+    if maybe_start_id.is_err() {
+        return Err(maybe_start_id.err().unwrap());
+    }
+
+    let start_id = maybe_start_id.unwrap();
+
+    let maybe_end_id = graph.find_station(end);
+    if maybe_end_id.is_err() {
+        return Err(maybe_end_id.err().unwrap());
+    }
+
+    let end_id = maybe_end_id.unwrap();
+
+    if let Some(path_ids) = find_path(graph, start_id, end_id) {
+        return Ok(build_path_string(graph, path_ids));
+    }
+    Err(format!("No path from {} to {}", start, end))
+}
+
+fn build_path_string(graph: &Subway, path_ids: Vec<(StationId, StationInfo)>) -> String {
+    let mut path_string: String = String::new();
+    let mut prev_line: String = String::new();
+    let mut prev_branch: String = String::new();
+    for &(ref id, ref info) in path_ids.iter() {
+        if let Some(n) = graph.get_station(*id) {
+            // TODO: below seems brittle AF, must be DRYer way
+            if prev_line.is_empty() && prev_branch.is_empty() {
                 prev_line = info.line.to_string();
                 prev_branch = info.branch.to_string();
             }
+            if prev_branch.as_slice() != info.branch.as_slice() {
+                if info.branch.as_slice() != info.line.as_slice() {
+                    path_string = format!("{}---ensure you are on {}\n", path_string,
+                                                                         info.branch)
+                }
+            }
+            if prev_line.as_slice() != info.line.as_slice() {
+                path_string = format!("{}---switch from {} to {}\n", path_string,
+                                                                     prev_line,
+                                                                     info.line)
+            }
+
+            if info.branch.as_slice() == info.line.as_slice() {
+                path_string = format!("{}{}, take {}\n", path_string, n, info.line);
+            } else {
+                path_string = format!("{}{}, take {}\n", path_string, n, info.branch);
+            }
+            prev_line = info.line.to_string();
+            prev_branch = info.branch.to_string();
         }
-        return Some(path_string);
     }
-    None
+    return path_string;
 }
 
 #[derive(Copy, Eq, PartialEq)]
