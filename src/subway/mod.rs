@@ -1,6 +1,10 @@
 #![allow(unstable)]
+
+extern crate regex;
+
 use std::collections::HashMap;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
+
 
 pub use self::data::load_subway_data;
 pub use self::route::find_route;
@@ -63,6 +67,8 @@ pub trait SubwayGraph {
 	/// Possibly retrieves the list of `Connection`s for the given station.
 	fn get_connections(&self, from: StationId) -> Option<&Vec<Connection>>;
 
+    fn find_station(&self, stn: &str) -> Result<StationId, String>;
+
 	/// Possibly retrieves the `Connection` from station `from` to station `to`.
 	fn get_connection(&self, from: StationId, to: StationId) -> Option<&Connection>;
 
@@ -103,6 +109,28 @@ impl SubwayGraph for Subway {
                 ent.insert(cs);
             }
         }
+    }
+
+    fn find_station(&self, stn: &str) -> Result<StationId, String> {
+        let stn_re = regex::Regex::new(stn).unwrap();
+        let stns = self.station_id_map.iter()
+                                      .filter(|&(ref s, _)| stn_re.is_match(s.as_slice()))
+                                      .map(|(s, id)| *id);
+
+        let mut lo_stns: Vec<StationId> = stns.collect();
+
+        if lo_stns.len() > 1 {
+            let mut emsg = "disambiguate your destination: ".to_string();
+            for s in lo_stns.iter() {
+                emsg = format!("{} {}", emsg, self.get_station(*s).unwrap());
+            }
+            return Err(emsg);
+        } else if lo_stns.len() == 0 {
+            return Err(format!("No such station: {}", stn));
+        }
+
+        let stn_id = lo_stns.pop();
+        Ok(stn_id.unwrap())
     }
 
     fn size(&self) -> usize { self.stations.len() }

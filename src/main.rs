@@ -77,7 +77,9 @@ fn main() {
         }
     }
 
-    let route_re = regex!(r"^from (?P<from>[A-Za-z. ]+) to (?P<to>[A-Za-z. ]+)$");
+    let route_re = regex!(r"^from (?P<from>.+) to (?P<to>.+)$");
+
+    let invalid_station_re = regex!(r"[^A-Za-z. ]");
 
     io::stdio::print(PROMPT);
     for line in io::stdin().lock().lines() {
@@ -90,18 +92,26 @@ fn main() {
         }
         let caps = maybe_caps.unwrap();
         let from = caps.name("from").unwrap();
-        let from = caps.name("from").unwrap();
+
+        if invalid_station_re.is_match(from) {
+            println!("No such starting point: {}", from);
+            io::stdio::print(PROMPT);
+            continue;
+        }
+
         let to = caps.name("to").unwrap();
-        let start_id = *(subway.get_station_id(from).unwrap());
-        let end_id = *(subway.get_station_id(to).unwrap());
-        let maybe_path = find_route(&subway, start_id, end_id);
+
+        if invalid_station_re.is_match(to) {
+            println!("No such destination: {}", to);
+            io::stdio::print(PROMPT);
+            continue;
+        }
+
+        let maybe_path = find_route(&subway, from, to);
+
         match maybe_path {
-            Some(p) => println!("path from {} to {}:\n{}", from, to, p),
-            None    => {
-                println!("No path from {} to {}", from, to);
-                io::stdio::print(PROMPT);
-                continue;
-            }
+            Ok(p) => println!("{}", p),
+            Err(e) => println!("{}", e),
         }
         io::stdio::print(PROMPT);
     }
