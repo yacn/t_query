@@ -1,10 +1,62 @@
 #![allow(unstable)]
+
+#![feature(plugin)]
+
+#[plugin]
+extern crate regex_macros;
+extern crate regex;
+
 use std::uint;
 use std::collections::BinaryHeap;
 use std::collections::HashMap;
 use std::cmp::Ordering;
 
 use super::{Subway, StationId, StationInfo, SubwayGraph};
+
+const DISABLE_COST: usize = 100;
+
+pub enum Query {
+    Route(String, String),
+    Enable(StationId),
+    Disable(StationId),
+}
+
+impl Query {
+    pub fn new(subway: &Subway, line: &str) -> Result<Query, String> {
+        let route_re: regex::Regex = regex!(r"^from (?P<from>.+) to (?P<to>.+)$");
+        let disable_re: regex::Regex = regex!(r"^disable (?P<station>.+)$");
+        let enable_re: regex::Regex  = regex!(r"^enable (?P<station>.+)$");
+        let invalid_station_re: regex::Regex = regex!(r"[^A-Za-z. ]");
+
+        if route_re.is_match(line) {
+            let caps = route_re.captures(line).unwrap();
+            let to = caps.name("to").unwrap();
+            let from = caps.name("from").unwrap();
+            return Ok(Query::Route(from.to_string(), to.to_string()));
+        }
+
+        if disable_re.is_match(line) {
+            let caps = disable_re.captures(line).unwrap();
+            let stn = caps.name("station").unwrap();
+            match subway.find_station(stn) {
+                Ok(sid) => { return Ok(Query::Disable(sid)); },
+                Err(e)  => { return Err(e); },
+            }
+        }
+
+        if enable_re.is_match(line) {
+            let caps = enable_re.captures(line).unwrap();
+            let stn = caps.name("station").unwrap();
+            match subway.find_station(stn) {
+                Ok(sid) => { return Ok(Query::Enable(sid)); },
+                Err(e)  => { return Err(e); },
+            }
+        }
+        let emsg = format!("unable to parse query: {}", line);
+        Err(emsg)
+    }
+}
+
 
 /// Attempts to find a route from `start` to `end`
 pub fn find_route(graph: &Subway, start: &str, end: &str) -> Result<String, String> {
@@ -34,7 +86,7 @@ fn build_path_string(graph: &Subway, path_ids: Vec<(StationId, StationInfo)>) ->
     let mut prev_line: String = String::new();
     let mut prev_branch: String = String::new();
     for &(ref id, ref info) in path_ids.iter() {
-        if let Some(n) = graph.get_station(*id) {
+        if let Some(stn) = graph.get_station(*id) {
             // TODO: below seems brittle AF, must be DRYer way
             if prev_line.is_empty() && prev_branch.is_empty() {
                 prev_line = info.line.to_string();
@@ -53,9 +105,9 @@ fn build_path_string(graph: &Subway, path_ids: Vec<(StationId, StationInfo)>) ->
             }
 
             if info.branch.as_slice() == info.line.as_slice() {
-                path_string = format!("{}{}, take {}\n", path_string, n, info.line);
+                path_string = format!("{}{}, take {}\n", path_string, stn, info.line);
             } else {
-                path_string = format!("{}{}, take {}\n", path_string, n, info.branch);
+                path_string = format!("{}{}, take {}\n", path_string, stn, info.branch);
             }
             prev_line = info.line.to_string();
             prev_branch = info.branch.to_string();
@@ -108,6 +160,7 @@ pub fn find_path(graph: &Subway, start: StationId, end: StationId)
         let connections = graph.get_connections(current).unwrap();
         for connection in connections.iter() {
             let mut c: usize = connection.cost;
+            if !connection.active  { c += DISABLE_COST; }
             if let Some(prev_info) = prev_stn {
                 let prev_line = prev_info.line.as_slice();
                 let prev_branch = prev_info.branch.as_slice();

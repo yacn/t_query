@@ -2,8 +2,6 @@
 
 ## TODO:
 
-* Enable/disable stations
-
 * Concurrency, e.g. the graph can be passed between multiple threads
 
     - Use Channels

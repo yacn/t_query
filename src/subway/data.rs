@@ -45,7 +45,7 @@ pub fn load_subway_data<R: Reader>(mut subway: &mut Subway,
         let mut station: String  = line.trim().to_string();
         // FIXME: this is a hack, need general solution to stations w/ same name but diff stn.
         if station.as_slice() == "St. Paul Street" {
-            station = format!("{} {}", station, subway_branch);
+            station.push_str(" "); station.push_str(subway_branch.as_slice());
         }
         let stn_id: StationId = subway.add_station(station.as_slice());
 
