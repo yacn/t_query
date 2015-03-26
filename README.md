@@ -2,18 +2,17 @@
 
 ## TODO:
 
-* Partial station name matching / disambiguation, ex:
-
-    - `Airport` finds `Airport Station`
-
-    - `Center` requires disambiguating between `Quincy Center Station`,
-    `Government Center Station`, `Tufts Medical Center Station`,
-    and `Malden Center Station`
-
 * Concurrency, e.g. the graph can be passed between multiple threads
 
-* Enable/disable stations
+    - Use Channels
+
+        * Receiver will handle receiving commands, running command, sending
+        results back on provided channel.
+
+        * Senders send commands _and_ a receiving channel to receive their
+        results on.
 
     - Will need a queue of operations to perform
 
         * e.g. `["disable foo", "from bar to baz", "enable foo", ...]`
+
