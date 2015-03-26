@@ -9,52 +9,18 @@ extern crate regex;
 
 extern crate t_query;
 
+use std::io;
+use std::os;
+
 use t_query::subway::{Subway, SubwayGraph};
 use t_query::load_subway_data;
 use t_query::find_route;
 
-use std::io;
-use std::os;
-
-use std::io::{
-    TcpListener,
-    TcpStream,
-    BufferedStream,
-    File,
-    Listener,
-    Acceptor,
-    IoError,
-    IoErrorKind,
-    FileStat
-};
-use std::thread::Thread;
-use std::io::net::tcp::TcpAcceptor;
-
-const PROMPT: &'static str = "===>>>";
+use std::sync::{Arc, Mutex};
 
 const BIND_ADDR: &'static str = "127.0.0.1:12345";
 
-fn mk_reader(s: &str) -> io::BufferedReader<io::MemReader> {
-    let b = s.to_string().into_bytes();
-    io::BufferedReader::new(io::MemReader::new(b))
-}
-
 fn main() {
-    /*
-    let listener: TcpListener = TcpListener::bind(BIND_ADDR).unwrap();
-    let mut acceptor: TcpAcceptor = listener.listen().unwrap();
-    for stream in acceptor.incoming() {
-        match stream {
-            Err(e) => {println!("error: {}", e) }
-            Ok(stream) => {println!("reading")
-                //let stream_buff: BufferedStream<TcpStream> = BufferedStream::new(stream);
-                //Thread::spawn(move || {
-                    handle_request(stream_buff)
-                //});
-            }
-        }
-    }
-    drop(acceptor);*/
     let args: Vec<String> = os::args();
     let args: &[String] = args.tail();
 
@@ -77,47 +43,6 @@ fn main() {
         }
     }
 
-    let route_re = regex!(r"^from (?P<from>.+) to (?P<to>.+)$");
-
-    let invalid_station_re = regex!(r"[^A-Za-z. ]");
-
-    io::stdio::print(PROMPT);
-    for line in io::stdin().lock().lines() {
-        let input_line: String = line.unwrap();
-        let maybe_caps = route_re.captures(input_line.trim());
-        if maybe_caps.is_none() {
-            println!("No path: {}", input_line);
-            io::stdio::print(PROMPT);
-            continue;
-        }
-        let caps = maybe_caps.unwrap();
-        let from = caps.name("from").unwrap();
-
-        if invalid_station_re.is_match(from) {
-            println!("No such starting point: {}", from);
-            io::stdio::print(PROMPT);
-            continue;
-        }
-
-        let to = caps.name("to").unwrap();
-
-        if invalid_station_re.is_match(to) {
-            println!("No such destination: {}", to);
-            io::stdio::print(PROMPT);
-            continue;
-        }
-
-        let maybe_path = find_route(&subway, from, to);
-
-        match maybe_path {
-            Ok(p) => println!("{}", p),
-            Err(e) => println!("{}", e),
-        }
-        io::stdio::print(PROMPT);
-    }
-
+    let shared_subway = Arc::new(Mutex::new(subway));
+    t_query::server::start(BIND_ADDR, shared_subway.clone());
 }
-
-//fn handle_request<S: io::Stream>(stream: S) -> () {
-
-//}
