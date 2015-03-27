@@ -46,18 +46,11 @@ pub fn start(bind_addr: &str, shared_subway: Arc<Mutex<Subway>>) {
                 match maybe_query {
                     Ok(q) => match q {
                         Query::Route(from, to) => {
-                            println!("route qry from {} to {}", from, to);
                             let subway = shared_subway.lock().unwrap();
-                            match find_route(&*subway, from.as_slice(), to.as_slice()) {
-                                Ok(p) => {
-                                    println!("found path from {} to {}", from, to);
-                                    results_chan.send(p).unwrap();
-                                },
-                                Err(e) => {
-                                    println!("err findng path: {}", e);
-                                    results_chan.send(e).unwrap();
-                                },
-                            }
+                            // double unwrap to silence "unused result" warning
+                            find_route(&*subway, from, to).map_err(|e| results_chan.send(e))
+                                                          .map(|p| results_chan.send(p))
+                                                          .unwrap().unwrap();
                         },
                         Query::Enable(stn) => {
                             let mut subway = shared_subway.lock().unwrap();
@@ -72,10 +65,7 @@ pub fn start(bind_addr: &str, shared_subway: Arc<Mutex<Subway>>) {
                             results_chan.send("done".to_string()).unwrap();
                         }
                     },
-                    Err(e) => {
-                        println!("err in qry: {}", e);
-                        results_chan.send(e).unwrap();
-                    },
+                    Err(e) => { results_chan.send(e).unwrap(); },
                 }
             }
         });
@@ -94,7 +84,7 @@ pub fn start(bind_addr: &str, shared_subway: Arc<Mutex<Subway>>) {
                     let mut buf: [u8; MAX_QUERY_LENGTH] = [0; MAX_QUERY_LENGTH];
                     let bytes_read: usize = streambuf.read(&mut buf).unwrap();
 
-                    println!("qry recvd: {}\n", ::std::str::from_utf8(&buf).unwrap());
+                    println!("recvd: {}\n", ::std::str::from_utf8(&buf).unwrap());
 
                     let query_bytes: &[u8] = buf.slice_to(bytes_read);
                     let query_str: &str = ::std::str::from_utf8(query_bytes).unwrap();
@@ -108,7 +98,6 @@ pub fn start(bind_addr: &str, shared_subway: Arc<Mutex<Subway>>) {
                     queue_back.send((query, done_send)).unwrap();
 
                     let results: String = done_recv.recv().unwrap();
-                    println!("got results: {}\n", results);
                     streambuf.write_str(results.as_slice()).unwrap();
                 });
             }
