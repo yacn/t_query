@@ -1,11 +1,6 @@
 #![allow(unstable)]
 #![allow(unused_mut)]
 #![allow(unused_imports)]
-#![feature(plugin)]
-
-#[plugin]
-extern crate regex_macros;
-extern crate regex;
 
 use std::os;
 use std::io;
@@ -30,8 +25,9 @@ use std::thread::Thread;
 use std::io::net::tcp::TcpAcceptor;
 
 use super::find_route;
-use super::subway::{Subway, SubwayGraph, Query};
-use super::subway::Query::{Route, Enable, Disable};
+use super::subway::Subway;
+use super::subway::route::Query;
+use super::subway::route::Query::{Route, Enable, Disable};
 
 // chosen arbitrarily
 const MAX_QUERY_LENGTH: usize = 1024;
@@ -113,7 +109,7 @@ pub fn start(bind_addr: &str, shared_subway: Arc<Mutex<Subway>>) {
 
                     let results: String = done_recv.recv().unwrap();
                     println!("got results: {}\n", results);
-                    streambuf.write_str(results.as_slice());
+                    streambuf.write_str(results.as_slice()).unwrap();
                 });
             }
         }
