@@ -1,18 +1,18 @@
 #![allow(unstable)]
 use std::io;
 
-use super::{Subway, StationId, SubwayGraph};
+use super::{Subway, StationId};
 
 pub fn load_subway_data<R: Reader>(mut subway: &mut Subway,
-                                        mut content: io::BufferedReader<R>,
-                                        tline: &str) {
+                                   mut content: io::BufferedReader<R>,
+                                   tline: &str) -> Result<(), String> {
 
     let mut subway_branch: String = tline.to_string();
     let mut prev_stn_id: Option<usize> = None;
     let mut pre_branch_stn: Option<usize> = None;
-    let mut just_branched: bool = false;
     let mut in_branch: bool = false;
     let mut just_branched: bool = false;
+
     let to_trim: &[_] = &['-', ' '];
 
     let mut lines = content.lines();
@@ -21,6 +21,8 @@ pub fn load_subway_data<R: Reader>(mut subway: &mut Subway,
                                                 .trim_left_matches(to_trim)
                                                 .trim()
                                                 .to_string();
+    let num_branches: usize = branch_list_line.split(' ').count();
+    let mut seen_branches: usize = 0;
     for l in lines {
         let line = l.unwrap();
         
@@ -38,6 +40,7 @@ pub fn load_subway_data<R: Reader>(mut subway: &mut Subway,
         if single_branch_line {
             in_branch = true;
             just_branched = true;
+            seen_branches += 1;
             subway_branch = line.trim_left_matches(to_trim).trim().to_string();
             continue;
         }
@@ -65,5 +68,10 @@ pub fn load_subway_data<R: Reader>(mut subway: &mut Subway,
             subway.add_connection(stn_id, sid, tline, subway_branch.as_slice());
         }
         prev_stn_id = Some(stn_id);
+    }
+    if (num_branches != 1) && (seen_branches != num_branches) {
+        Err(format!("More branches defined in header than appear in graph data for {}!", tline))
+    } else {
+        Ok(())
     }
 }

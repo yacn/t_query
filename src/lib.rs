@@ -1,19 +1,15 @@
-#![allow(unstable)]
 #![feature(plugin)]
+#![allow(unstable)]
 
 #[plugin]
 extern crate regex_macros;
 extern crate regex;
 
-use std::io;
+pub use subway::data::load_subway_data;
 
-pub use subway::load_subway_data;
-pub use subway::find_route;
-
-pub use subway::Query;
-pub use subway::Query::{Route, Enable, Disable};
+pub use subway::route::find_route;
+pub use subway::route::Query;
+pub use subway::route::Query::{Route, Enable, Disable};
 
 pub mod subway;
 pub mod server;
-
-const DEBUG: bool = false;
