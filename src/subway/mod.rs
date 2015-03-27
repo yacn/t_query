@@ -113,7 +113,7 @@ impl Subway {
             }
             return Err(emsg);
         } else if lo_stns.len() == 0 {
-            return Err(format!("No such station: {}", stn));
+            return Err(format!("No such station: {}\n", stn));
         }
 
         let stn_id = lo_stns.pop();
