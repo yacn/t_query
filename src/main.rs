@@ -1,3 +1,13 @@
+//! t_query manages a pseudo-MBTA subway system and has three distinct tasks:
+//!     * respond to queries by T riders on how to get from one station to another
+//!         - query format: `from STATION to STATION'
+//!             * `STATION' uniquely identifies a subway station
+//!     * disable station
+//!         - query format: `disable STATION'. See above note regarding `STATION'
+//!     * enable station, opposite of previous task
+//!         - query format: `enable STATION'
+//! ---------------------------------------------------------------------------------------------
+
 #![allow(unstable)]
 #![allow(unused_mut)]
 #![allow(unused_imports)]
