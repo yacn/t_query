@@ -1,6 +1,5 @@
 #![allow(unstable)]
 
-#![feature(plugin)]
 
 #[plugin]
 extern crate regex_macros;
@@ -11,7 +10,7 @@ use std::collections::BinaryHeap;
 use std::collections::HashMap;
 use std::cmp::Ordering;
 
-use super::{Subway, StationId, StationInfo, SubwayGraph};
+use super::{Subway, StationId, StationInfo};
 
 const DISABLE_COST: usize = 100;
 
@@ -26,7 +25,6 @@ impl Query {
         let route_re: regex::Regex = regex!(r"^from (?P<from>.+) to (?P<to>.+)$");
         let disable_re: regex::Regex = regex!(r"^disable (?P<station>.+)$");
         let enable_re: regex::Regex  = regex!(r"^enable (?P<station>.+)$");
-        let invalid_station_re: regex::Regex = regex!(r"[^A-Za-z. ]");
 
         if route_re.is_match(line) {
             let caps = route_re.captures(line).unwrap();
@@ -94,20 +92,28 @@ fn build_path_string(graph: &Subway, path_ids: Vec<(StationId, StationInfo)>) ->
             }
             if prev_branch.as_slice() != info.branch.as_slice() {
                 if info.branch.as_slice() != info.line.as_slice() {
-                    path_string = format!("{}---ensure you are on {}\n", path_string,
-                                                                         info.branch)
+                    for &s in ["---ensure you are on ", info.branch.as_slice(), "\n"].iter() {
+                        path_string.push_str(s);
+                    }
                 }
             }
             if prev_line.as_slice() != info.line.as_slice() {
-                path_string = format!("{}---switch from {} to {}\n", path_string,
-                                                                     prev_line,
-                                                                     info.line)
+                let strs = ["---switch from ",
+                            prev_line.as_slice(),
+                            " to ",
+                            info.line.as_slice(),
+                            "\n"];
+                for &s in strs.iter() { path_string.push_str(s); }
             }
 
             if info.branch.as_slice() == info.line.as_slice() {
-                path_string = format!("{}{}, take {}\n", path_string, stn, info.line);
+                for &s in [stn.as_slice(), ", take ", info.line.as_slice(), "\n"].iter() {
+                    path_string.push_str(s);
+                }
             } else {
-                path_string = format!("{}{}, take {}\n", path_string, stn, info.branch);
+                for &s in [stn.as_slice(), ", take ", info.branch.as_slice(), "\n"].iter() {
+                    path_string.push_str(s);
+                }
             }
             prev_line = info.line.to_string();
             prev_branch = info.branch.to_string();
