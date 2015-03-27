@@ -1,18 +1,13 @@
 #![allow(unstable)]
 #![allow(unused_mut)]
 #![allow(unused_imports)]
-#![feature(plugin)]
-
-#[plugin]
-extern crate regex_macros;
-extern crate regex;
 
 extern crate t_query;
 
 use std::io;
 use std::os;
 
-use t_query::subway::{Subway, SubwayGraph};
+use t_query::subway::Subway;
 use t_query::load_subway_data;
 use t_query::find_route;
 
@@ -36,7 +31,7 @@ fn main() {
         if let Some(subway_line) = path.filestem_str() {
             let file = io::File::open(&path);
             let file_buf = io::BufferedReader::new(file);
-            load_subway_data(&mut subway, file_buf, subway_line);
+            load_subway_data(&mut subway, file_buf, subway_line).unwrap_or_else(|s| panic!(s));
         } else {
             println!("Error getting filename from: {:?}", path);
             continue;
